@@ -89,7 +89,7 @@ CREATE TABLE t_download_results (
     failures        numeric NOT NULL,
     create_date     TIMESTAMP,
     update_date     TIMESTAMP,
-    symbol_id       BIGINT REFERENCES t_download_results
+    symbol_id       BIGINT REFERENCES t_symbol
 );
 CREATE INDEX ix_download_results_create_date      ON t_download_results(create_date);
 CREATE INDEX ix_download_results_update_date      ON t_download_results(update_date);

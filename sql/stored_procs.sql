@@ -337,6 +337,158 @@ ALTER FUNCTION f_daily_price_ins_upd(
 -- -------------------------------------------------------------------------------------------------
 -- -------------------------------------------------------------------------------------------------
 -- -------------------------------------------------------------------------------------------------
+-- Function: f_tr_download_results()
+-- DROP FUNCTION f_tr_download_results();
+CREATE OR REPLACE FUNCTION f_tr_download_results() RETURNS trigger AS $f_tr_download_results$
+    BEGIN
+      IF NEW.symbol_id IS NULL THEN
+         RAISE EXCEPTION 't_download_results cannot have null symbol_id';
+      END IF;
+
+      -- Set create timestamp
+      IF TG_OP = 'INSERT'
+      THEN
+         NEW.create_date := current_timestamp;
+      END IF;
+      
+      IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE'
+      THEN
+         NEW.update_date  := current_timestamp;
+      END IF;
+         
+      RETURN NEW;
+    END;
+$f_tr_download_results$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_download_results BEFORE INSERT OR UPDATE ON t_download_results
+    FOR EACH ROW EXECUTE PROCEDURE f_tr_download_results();
+-- -------------------------------------------------------------------------------------------------
+-- Function: f_download_results_ins_upd(text, text, text, text, text, text, text, integer, text, text, integer, timestamp without time zone)
+-- DROP FUNCTION f_download_results_ins_upd(text, text, text, text, text, text, text, integer, text, text, integer, timestamp without time zone);
+CREATE OR REPLACE FUNCTION f_download_results_ins_upd(
+    symbol_id_i         BIGINT,
+    successes_i         numeric,
+    failures_i          numeric)
+  RETURNS bigint AS
+$BODY$
+DECLARE
+  var_id      BIGINT      := 0;
+  var_download_results_row    t_download_results%ROWTYPE;
+BEGIN
+  SELECT id
+    INTO var_download_results_row
+    FROM t_download_results
+   WHERE symbol_id  = symbol_id_i;
+
+  var_id := var_download_results_row.id;
+  
+  IF var_id IS NULL OR var_id = 0
+  THEN
+    var_id   := NEXTVAL('seq_download_results');
+    INSERT INTO t_download_results (
+        id,
+        successes,
+        failures,
+        symbol_id
+    )
+    VALUES (
+        var_id,
+        successes_i,
+        failures_i,
+        symbol_id_i
+    );
+  ELSE
+    UPDATE t_download_results SET
+        successes       = successes_i,
+        failures        = failures_i,
+        symbol_id       = symbol_id_i
+    WHERE
+        id = var_id;
+  END IF;
+
+  RETURN var_id;
+END;
+$BODY$
+  LANGUAGE 'plpgsql' VOLATILE;
+ALTER FUNCTION f_download_results_ins_upd(
+    symbol_id_i         BIGINT,
+    successes_i        numeric,
+    failures_i        numeric) OWNER TO trade_forecast;
+-- -------------------------------------------------------------------------------------------------
+-- -------------------------------------------------------------------------------------------------
+-- Function: f_download_results_ins_upd(text, text, text, text, text, text, text, integer, text, text, integer, timestamp without time zone)
+-- DROP FUNCTION f_download_results_ins_upd(text, text, text, text, text, text, text, integer, text, text, integer, timestamp without time zone);
+CREATE OR REPLACE FUNCTION f_download_results_failed(
+    symbol_id_i         BIGINT)
+  RETURNS bigint AS
+$BODY$
+DECLARE
+  var_id      BIGINT      := 0;
+  var_download_results_row    t_download_results%ROWTYPE;
+  var_download_results_dummy  t_download_results%ROWTYPE;
+BEGIN
+  SELECT id
+    INTO var_download_results_row
+    FROM t_download_results
+   WHERE symbol_id  = symbol_id_i;
+
+  var_id := var_download_results_row.symbol_id;
+  
+  IF var_id IS NULL OR var_id = 0
+  THEN
+    SELECT * INTO var_download_results_dummy FROM f_download_results_ins_upd(symbol_id_i, 0, 1);
+  ELSE
+    UPDATE t_download_results SET
+        failures    = var_download_results_row.failures + 1
+    WHERE
+        symbol_id   = symbol_id_i;
+  END IF;
+
+  RETURN var_id;
+END;
+$BODY$
+  LANGUAGE 'plpgsql' VOLATILE;
+ALTER FUNCTION f_download_results_failed(
+    symbol_id_i         BIGINT) OWNER TO trade_forecast;
+-- -------------------------------------------------------------------------------------------------
+-- -------------------------------------------------------------------------------------------------
+-- Function: f_download_results_ins_upd(text, text, text, text, text, text, text, integer, text, text, integer, timestamp without time zone)
+-- DROP FUNCTION f_download_results_ins_upd(text, text, text, text, text, text, text, integer, text, text, integer, timestamp without time zone);
+CREATE OR REPLACE FUNCTION f_download_results_succeeded(
+    symbol_id_i         BIGINT)
+  RETURNS bigint AS
+$BODY$
+DECLARE
+  var_id      BIGINT      := 0;
+  var_download_results_row    t_download_results%ROWTYPE;
+  var_download_results_dummy  t_download_results%ROWTYPE;
+BEGIN
+  SELECT id
+    INTO var_download_results_row
+    FROM t_download_results
+   WHERE symbol_id  = symbol_id_i;
+
+  var_id := var_download_results_row.symbol_id;
+  
+  IF var_id IS NULL OR var_id = 0
+  THEN
+    SELECT * INTO var_download_results_dummy FROM f_download_results_ins_upd(symbol_id_i, 1, 0);
+  ELSE
+    UPDATE t_download_results SET
+        successes    = var_download_results_row.successes + 1
+    WHERE
+        symbol_id   = symbol_id_i;
+  END IF;
+
+  RETURN var_id;
+END;
+$BODY$
+  LANGUAGE 'plpgsql' VOLATILE;
+ALTER FUNCTION f_download_results_succeeded(
+    symbol_id_i         BIGINT) OWNER TO trade_forecast;
+-- -------------------------------------------------------------------------------------------------
+-- -------------------------------------------------------------------------------------------------
+-- -------------------------------------------------------------------------------------------------
 -- add some initial data
 SELECT * FROM f_exchange_ins_upd('NYSE', 'New York Stock Exchange');
 SELECT * FROM f_exchange_ins_upd('NASDAQ', 'National Association of Securities Dealers Automated Quotations');
