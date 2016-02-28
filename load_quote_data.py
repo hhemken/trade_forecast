@@ -18,9 +18,9 @@ def get_daily_price_count(pg_cursor, symbol_id):
     :param symbol_id:
     :return:
     """
-    pg_cursor.execute("select count(*) from t_daily_price where symbol_id = %d;;" % symbol_id)
+    pg_cursor.execute("select count(*) from t_daily_price where symbol_id = %d;" % symbol_id)
     daily_price_count = pg_cursor.fetchone()[0]
-    log.info('symbol_id has %d daily price quotes', daily_price_count)
+    log.info('symbol_id %d has %d daily price quotes', symbol_id, daily_price_count)
     return daily_price_count
 
 
@@ -54,6 +54,7 @@ def load_quote_data(pg_conn, pg_cursor, exchange):
         #  {'Volume': '7800', 'Symbol': 'AAMC', 'Adj_Close': '16.99', 'High': '17.290001', 'Low': '15.59', 'Date': '2016-02-04', 'Close': '16.99', 'Open': '15.59'},
         # ...]
         cnt = 0
+        failed = False
         for quote in historical_data:
             # CREATE OR REPLACE FUNCTION f_daily_price_ins_upd(
             #     symbol_id_i         BIGINT,
@@ -66,7 +67,10 @@ def load_quote_data(pg_conn, pg_cursor, exchange):
             #     percent_change_i    numeric(8,6),
             #     volume_i            BIGINT)
             if 'Date' not in quote:
-                log.info('bad data received for %s, skipping', ticker)
+                sql_cmd = "SELECT f_download_results_failed(%s);" % (str(symbol_id))
+                log.info('bad data received for %s, skipping and calling "%s"', ticker, sql_cmd)
+                pg_cursor.execute(sql_cmd)
+                failed = True
                 continue
             if cnt % 100 == 0:
                 log.info('        processed %d out of %d %s quotes so far', cnt, len(historical_data), ticker)
@@ -82,17 +86,26 @@ def load_quote_data(pg_conn, pg_cursor, exchange):
                                pct_change,
                                quote['Volume'].strip()))
             cnt += 1
+        if not failed:
+            if cnt > 0:
+                sql_cmd = "SELECT f_download_results_succeeded(%s);" % (str(symbol_id))
+                log.info('successfully downloaded data for %s, calling "%s"', ticker, sql_cmd)
+                pg_cursor.execute(sql_cmd)
+            elif cnt == 0:
+                sql_cmd = "SELECT f_download_results_failed(%s);" % (str(symbol_id))
+                log.info('no data received for %s, calling "%s"', ticker, sql_cmd)
+                pg_cursor.execute(sql_cmd)
         pg_conn.commit()
-        log.info('sleep 10 s')
-        time.sleep(10)
+        log.info('sleep 6 s')
+        time.sleep(6)
 
 if __name__ == '__main__':
-    tintri_log_format = ("%(asctime)s.%(msecs)03d %(levelname)-06s: " +
+    quote_data_log_format = ("%(asctime)s.%(msecs)03d %(levelname)-06s: " +
                          "%(module)s::%(funcName)s:%(lineno)s: %(message)s")
-    tintri_log_datefmt = "%Y-%m-%dT%H:%M:%S"
+    quote_data_log_datefmt = "%Y-%m-%dT%H:%M:%S"
     logging.basicConfig(level=logging.DEBUG,
-                        format=tintri_log_format,
-                        datefmt=tintri_log_datefmt)
+                        format=quote_data_log_format,
+                        datefmt=quote_data_log_datefmt)
 
     database = 'trade_forecast'
     user = 'trade_forecast'

@@ -35,12 +35,12 @@ def load_tickers(pg_cursor, filename, exchange):
 
 
 if __name__ == '__main__':
-    tintri_log_format = ("%(asctime)s.%(msecs)03d [%(process)d] %(threadName)s: %(levelname)-06s: " +
+    quote_data_log_format = ("%(asctime)s.%(msecs)03d [%(process)d] %(threadName)s: %(levelname)-06s: " +
                          "%(module)s::%(funcName)s:%(lineno)s: %(message)s")
-    tintri_log_datefmt = "%Y-%m-%dT%H:%M:%S"
+    quote_data_log_datefmt = "%Y-%m-%dT%H:%M:%S"
     logging.basicConfig(level=logging.DEBUG,
-                        format=tintri_log_format,
-                        datefmt=tintri_log_datefmt)
+                        format=quote_data_log_format,
+                        datefmt=quote_data_log_datefmt)
 
     database = 'trade_forecast'
     user = 'trade_forecast'
