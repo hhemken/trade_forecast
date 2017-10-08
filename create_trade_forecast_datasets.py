@@ -33,7 +33,7 @@ log = logging.getLogger(__file__)
 
 class TradeForecastDataException(Exception):
     """
-    Generic exception to be raitrade_forecast_data within the TradeForecastData class.
+    Generic exception to be trade_forecast_data within the TradeForecastData class.
     """
 
     def __init__(self, msg):
@@ -46,13 +46,26 @@ class TradeForecastData(object):
     Describe what TradeForecastData is for
     """
 
-    A_CLASS_CONSTANT = 'Activation in progress'
-    ANOTHER_CLASS_CONSTANT = 30
+    PCT_CHG_CEILING = 50.0
+    PCT_CHG_FLOOR = -25.0
+    PCT_CHG_RANGE = PCT_CHG_CEILING - PCT_CHG_FLOOR
 
     def __init__(self):
         self.log = logging.getLogger(__name__)
         self.ticker_data = None
         self.output_dir = None
+
+    def scale_percent_change(self, percent_change):
+        """
+        Feature scaling of percent change to keep it between 0.0 and 1.0
+        :param datum:
+        :return:
+        """
+        if percent_change < self.PCT_CHG_FLOOR:
+            percent_change = self.PCT_CHG_FLOOR
+        elif percent_change > self.PCT_CHG_CEILING:
+            percent_change = self.PCT_CHG_CEILING
+        return (percent_change - self.PCT_CHG_FLOOR) / self.PCT_CHG_RANGE
 
     def load_data(self, data_file_path):
         """
@@ -136,7 +149,7 @@ class TradeForecastData(object):
                 value = self.ticker_data[ticker]['data'][date_str]['change']
                 if value == float('Inf'):
                     value = 0.0
-                output_data[date_str] = value
+                output_data[date_str] = self.scale_percent_change(value)
                 cnt += 1
             log.info('    rows %d', cnt)
             counts.append(cnt)
@@ -184,12 +197,12 @@ class TradeForecastData(object):
                     value = self.ticker_data[ticker]['data'][date_str]['change']
                     if value == float('Inf'):
                         value = 0.0
-                    output_data.append(value)
+                    output_data.append(self.scale_percent_change(value))
                     cnt += 1
                 log.info('    rows        %d', cnt)
                 row_counts.append(cnt)
                 win_cnt = 0
-                for each in self.window(output_data, size=16):
+                for each in self.window(output_data, size=window_size):
                     f.write(" ".join([str(number) for number in each]) + '\n')
                     win_cnt += 1
                 log.info('    windows     %d', win_cnt)
