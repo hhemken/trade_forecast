@@ -58,7 +58,7 @@ class TradeForecastData(object):
     def scale_percent_change(self, percent_change):
         """
         Feature scaling of percent change to keep it between 0.0 and 1.0
-        :param datum:
+        :param percent_change:
         :return:
         """
         if percent_change < self.PCT_CHG_FLOOR:
@@ -177,6 +177,8 @@ class TradeForecastData(object):
         """
         write out the percent change value keyed by date to output files by ticker name
         :param output_dir Describe my_arg
+        :param num_ann_inputs Describe my_arg
+        :param num_ann_outputs Describe my_arg
         :return None
         """
         self.output_dir = output_dir
